@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>ClinicalTrials 醫療器材臨床試驗查詢</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto+Mono:wght@400;600;700&display=swap');
+
+:root {
+  --bg: #0A1628;
+  --card: #0F2040;
+  --card2: #132850;
+  --border: #1E3A5F;
+  --blue: #1E6FD9;
+  --blue2: #2E82F0;
+  --teal: #00C2A8;
+  --amber: #F5A623;
+  --green: #4CAF82;
+  --red: #E05555;
+  --text: #E8EEF8;
+  --muted: #7A9CC4;
+  --faint: #3A5A80;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Inter', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  font-size: 14px;
+}
+
+/* ── 頂欄 ── */
+.topbar {
+  background: linear-gradient(90deg, #071020 0%, #0F2040 100%);
+  border-bottom: 1px solid var(--border);
+  padding: 0 2rem;
+  height: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.logo-mark {
+  font-family: 'Roboto Mono', monospace;
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--teal);
+  letter-spacing: .05em;
+}
+.logo-sub {
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: .06em;
+}
+.top-badge {
+  font-family: 'Roboto Mono', monospace;
+  font-size: 10px;
+  color: var(--faint);
+  letter-spacing: .05em;
+}
+
+/* ── 主容器 ── */
+.main { max-width: 1280px; margin: 0 auto; padding: 1.5rem 1.5rem 3rem; }
+
+/* ── 搜尋面板 ── */
+.search-panel {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1.4rem 1.6rem;
+  margin-bottom: 1.2rem;
+}
+.search-panel-title {
+  font-family: 'Roboto Mono', monospace;
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.search-panel-title::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+.search-grid {
+  display: grid;
+  grid-template-columns: 2fr 1.5fr 1fr 1fr 1fr auto;
+  gap: 10px;
+  align-items: end;
+}
+.field label {
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: .04em;
+  display: block;
+  margin-bottom: 5px;
+}
+.field input, .field select {
+  width: 100%;
+  background: var(--card2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-family: 'Inter', sans-serif;
+  color: var(--text);
+  outline: none;
+  transition: border-color .2s, box-shadow .2s;
+}
+.field input::placeholder { color: var(--faint); }
+.field input:focus, .field select:focus {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(30,111,217,.15);
+}
+.field select option { background: #0F2040; }
+
+.btn-search {
+  background: linear-gradient(135deg, var(--blue), var(--blue2));
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 9px 22px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+  transition: transform .15s, box-shadow .15s;
+  white-space: nowrap;
+  box-shadow: 0 2px 12px rgba(30,111,217,.35);
+}
+.btn-search:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 18px rgba(30,111,217,.45);
+}
+.btn-search:active { transform: scale(.98); }
+.btn-search:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ── 統計卡 ── */
+.stat-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 1.2rem;
+}
+.stat-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  position: relative;
+  overflow: hidden;
+}
+.stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+}
+.stat-card.s-total::before { background: var(--blue); }
+.stat-card.s-recruiting::before { background: var(--amber); }
+.stat-card.s-completed::before { background: var(--green); }
+.stat-card.s-sponsors::before { background: var(--teal); }
+
+.stat-label {
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  font-family: 'Roboto Mono', monospace;
+  margin-bottom: .5rem;
+}
+.stat-num {
+  font-family: 'Roboto Mono', monospace;
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1;
+}
+.stat-card.s-total .stat-num { color: var(--blue2); }
+.stat-card.s-recruiting .stat-num { color: var(--amber); }
+.stat-card.s-completed .stat-num { color: var(--green); }
+.stat-card.s-sponsors .stat-num { color: var(--teal); }
+.stat-sub {
+  font-size: 11px;
+  color: var(--faint);
+  margin-top: 4px;
+}
+
+/* ── 內容區 ── */
+.content-layout {
+  display: grid;
+  grid-template-columns: 1fr 420px;
+  gap: 14px;
+  align-items: start;
+}
+
+/* ── 表格區 ── */
+.table-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+}
+.table-header {
+  padding: .9rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.table-title {
+  font-family: 'Roboto Mono', monospace;
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.table-count {
+  font-family: 'Roboto Mono', monospace;
+  font-size: 11px;
+  color: var(--teal);
+}
+.table-wrap { overflow-x: auto; max-height: 520px; overflow-y: auto; }
+table { width: 100%; border-collapse: collapse; }
+thead th {
+  background: var(--card2);
+  padding: 9px 12px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+thead th:hover { color: var(--text); }
+thead th .sort-icon { opacity: .4; margin-left: 4px; }
+thead th.sorted .sort-icon { opacity: 1; color: var(--teal); }
+tbody tr {
+  border-bottom: 1px solid var(--border);
+  transition: background .15s;
+  opacity: 0;
+  animation: fadeRow .3s forwards;
+}
+tbody tr:hover { background: rgba(30,111,217,.07); }
+td {
+  padding: 9px 12px;
+  font-size: 12px;
+  color: var(--text);
+  vertical-align: top;
+}
+td.td-nct {
+  font-family: 'Roboto Mono', monospace;
+  font-size: 11px;
+  color: var(--blue2);
+  white-space: nowrap;
+}
+td.td-nct a {
+  color: var(--blue2);
+  text-decoration: none;
+}
+td.td-nct a:hover { text-decoration: underline; }
+td.td-title {
+  max-width: 280px;
+  line-height: 1.45;
+}
+td.td-sponsor {
+  max-width: 140px;
+  color: var(--muted);
+  font-size: 11px;
+}
+td.td-phase {
+  font-family: 'Roboto Mono', monospace;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.badge {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 20px;
+  font-size: 10px;
+  font-weight: 600;
+  font-family: 'Roboto Mono', monospace;
+  letter-spacing: .04em;
+  white-space: nowrap;
+}
+.badge-recruiting { background: rgba(245,166,35,.15); color: var(--amber); border: 1px solid rgba(245,166,35,.3); }
+.badge-completed { background: rgba(76,175,130,.15); color: var(--green); border: 1px solid rgba(76,175,130,.3); }
+.badge-active { background: rgba(0,194,168,.15); color: var(--teal); border: 1px solid rgba(0,194,168,.3); }
+.badge-other { background: rgba(122,156,196,.12); color: var(--muted); border: 1px solid rgba(122,156,196,.2); }
+
+@keyframes fadeRow {
+  from { opacity: 0; transform: translateX(-8px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+/* ── 圖表欄 ── */
+.charts-col { display: flex; flex-direction: column; gap: 12px; }
+.chart-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1rem 1.25rem;
+}
+.chart-label {
+  font-family: 'Roboto Mono', monospace;
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  margin-bottom: .8rem;
+}
+.chart-wrap { position: relative; }
+
+/* ── 空白/載入狀態 ── */
+.empty-state {
+  padding: 3.5rem 1rem;
+  text-align: center;
+  color: var(--faint);
+}
+.empty-icon {
+  font-size: 36px;
+  margin-bottom: .75rem;
+  opacity: .4;
+}
+.empty-text { font-size: 13px; line-height: 1.6; }
+
+.loading-state {
+  padding: 3rem 1rem;
+  text-align: center;
+}
+.spinner {
+  width: 32px; height: 32px;
+  border: 3px solid var(--border);
+  border-top-color: var(--blue);
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+  margin: 0 auto 1rem;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.error-state {
+  padding: 2rem 1.25rem;
+  background: rgba(224,85,85,.08);
+  border: 1px solid rgba(224,85,85,.2);
+  border-radius: 10px;
+  margin: 1rem;
+  color: #F08080;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+/* ── 分頁 ── */
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: .85rem;
+  border-top: 1px solid var(--border);
+}
+.page-btn {
+  background: var(--card2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  padding: 5px 12px;
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  transition: background .15s, color .15s;
+}
+.page-btn:hover:not(:disabled) { background: var(--blue); color: #fff; border-color: var(--blue); }
+.page-btn:disabled { opacity: .35; cursor: not-allowed; }
+.page-info {
+  font-family: 'Roboto Mono', monospace;
+  font-size: 11px;
+  color: var(--faint);
+}
+
+@media (max-width: 900px) {
+  .search-grid { grid-template-columns: 1fr 1fr; }
+  .content-layout { grid-template-columns: 1fr; }
+  .stat-row { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 500px) {
+  .search-grid { grid-template-columns: 1fr; }
+  .stat-row { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">
+    <span class="logo-mark">CT·SEARCH</span>
+    <span class="logo-sub">醫療器材臨床試驗查詢平台</span>
+  </div>
+  <span class="top-badge">ClinicalTrials.gov API v2</span>
+</div>
+
+<div class="main">
+
+  <!-- 搜尋面板 -->
+  <div class="search-panel">
+    <div class="search-panel-title">查詢條件</div>
+    <div class="search-grid">
+      <div class="field">
+        <label>器材名稱 / 關鍵字</label>
+        <input type="text" id="q-intr" placeholder="如：biopsy needle, catheter, stent" />
+      </div>
+      <div class="field">
+        <label>適應症 / 疾病</label>
+        <input type="text" id="q-cond" placeholder="如：cancer, hemodialysis" />
+      </div>
+      <div class="field">
+        <label>試驗狀態</label>
+        <select id="q-status">
+          <option value="">全部</option>
+          <option value="RECRUITING">招募中</option>
+          <option value="COMPLETED">已完成</option>
+          <option value="ACTIVE_NOT_RECRUITING">執行中（不招募）</option>
+          <option value="NOT_YET_RECRUITING">尚未招募</option>
+          <option value="TERMINATED">已終止</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>試驗期別</label>
+        <select id="q-phase">
+          <option value="">全部</option>
+          <option value="PHASE1">Phase 1</option>
+          <option value="PHASE2">Phase 2</option>
+          <option value="PHASE3">Phase 3</option>
+          <option value="PHASE4">Phase 4</option>
+          <option value="NA">N/A</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>申請公司</label>
+        <input type="text" id="q-sponsor" placeholder="公司名稱" />
+      </div>
+      <div>
+        <button class="btn-search" id="btn-search" onclick="doSearch()">🔍 查詢</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 統計卡 -->
+  <div class="stat-row" id="stat-row" style="display:none">
+    <div class="stat-card s-total">
+      <div class="stat-label">符合試驗總數</div>
+      <div class="stat-num" id="s-total">0</div>
+      <div class="stat-sub">筆記錄</div>
+    </div>
+    <div class="stat-card s-recruiting">
+      <div class="stat-label">招募中</div>
+      <div class="stat-num" id="s-recruiting">0</div>
+      <div class="stat-sub">試驗進行中</div>
+    </div>
+    <div class="stat-card s-completed">
+      <div class="stat-label">已完成</div>
+      <div class="stat-num" id="s-completed">0</div>
+      <div class="stat-sub">可查閱結果</div>
+    </div>
+    <div class="stat-card s-sponsors">
+      <div class="stat-label">申請單位數</div>
+      <div class="stat-num" id="s-sponsors">0</div>
+      <div class="stat-sub">不重複廠商</div>
+    </div>
+  </div>
+
+  <!-- 內容區 -->
+  <div class="content-layout">
+
+    <!-- 表格 -->
+    <div class="table-card">
+      <div class="table-header">
+        <span class="table-title">試驗清單</span>
+        <span class="table-count" id="table-count"></span>
+      </div>
+      <div id="table-body">
+        <div class="empty-state">
+          <div class="empty-icon">🔬</div>
+          <div class="empty-text">輸入器材名稱或適應症<br>開始查詢臨床試驗資料</div>
+        </div>
+      </div>
+      <div class="pagination" id="pagination" style="display:none">
+        <button class="page-btn" id="btn-prev" onclick="changePage(-1)">← 上一頁</button>
+        <span class="page-info" id="page-info"></span>
+        <button class="page-btn" id="btn-next" onclick="changePage(1)">下一頁 →</button>
+      </div>
+    </div>
+
+    <!-- 圖表欄 -->
+    <div class="charts-col" id="charts-col" style="display:none">
+
+      <div class="chart-card">
+        <div class="chart-label">試驗狀態分布</div>
+        <div class="chart-wrap" style="height:160px">
+          <canvas id="chart-status"></canvas>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <div class="chart-label">申請公司 Top 10</div>
+        <div class="chart-wrap" style="height:220px">
+          <canvas id="chart-sponsor"></canvas>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <div class="chart-label">試驗登記年份趨勢</div>
+        <div class="chart-wrap" style="height:160px">
+          <canvas id="chart-trend"></canvas>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── 狀態 ──
+var allStudies = [];
+var currentPage = 1;
+var pageSize = 20;
+var totalCount = 0;
+var nextPageToken = null;
+var sortField = null;
+var sortAsc = true;
+var charts = {};
+
+// ── 查詢入口 ──
+async function doSearch(page) {
+  var intr = document.getElementById('q-intr').value.trim();
+  var cond = document.getElementById('q-cond').value.trim();
+  var status = document.getElementById('q-status').value;
+  var phase = document.getElementById('q-phase').value;
+  var sponsor = document.getElementById('q-sponsor').value.trim();
+
+  if (!intr && !cond && !sponsor) {
+    alert('請至少輸入一個查詢條件');
+    return;
+  }
+
+  currentPage = 1;
+  nextPageToken = null;
+  allStudies = [];
+
+  setLoading(true);
+
+  try {
+    // 第一批：拿 pageSize 筆顯示，同時抓更多筆做圖表分析
+    var studies = await fetchStudies(intr, cond, status, phase, sponsor, 200, null);
+    allStudies = studies.list;
+    totalCount = studies.total;
+
+    renderStats(allStudies);
+    renderTable(allStudies, 1);
+    renderCharts(allStudies);
+
+    document.getElementById('stat-row').style.display = '';
+    document.getElementById('charts-col').style.display = '';
+
+  } catch(e) {
+    showError('查詢失敗：' + e.message + '<br><small>請確認網路連線，或稍後再試。</small>');
+  }
+
+  setLoading(false);
+}
+
+// ── fetch ClinicalTrials API ──
+async function fetchStudies(intr, cond, status, phase, sponsor, limit, pageToken) {
+  var base = 'https://clinicaltrials.gov/api/v2/studies';
+  var params = new URLSearchParams();
+
+  // 查詢條件
+  if (intr) params.set('query.intr', intr);
+  if (cond) params.set('query.cond', cond);
+  if (sponsor) params.set('query.term', sponsor);
+
+  // 篩選
+  var statusFilter = [];
+  if (status) {
+    statusFilter.push(status);
+  } else {
+    statusFilter = ['RECRUITING','COMPLETED','ACTIVE_NOT_RECRUITING','NOT_YET_RECRUITING','TERMINATED'];
+  }
+  params.set('filter.overallStatus', statusFilter.join(','));
+  if (phase) params.set('filter.phase', phase);
+
+  // 欄位
+  params.set('fields', [
+    'NCTId','BriefTitle','LeadSponsorName','OverallStatus',
+    'Phase','StartDate','PrimaryCompletionDate','EnrollmentCount',
+    'Condition','InterventionName','BriefSummary','StudyType'
+  ].join(','));
+
+  params.set('pageSize', Math.min(limit, 200));
+  params.set('sort', 'LastUpdatePostDate:desc');
+  if (pageToken) params.set('pageToken', pageToken);
+
+  var url = base + '?' + params.toString();
+  var resp = await fetch(url);
+  if (!resp.ok) throw new Error('HTTP ' + resp.status);
+
+  var data = await resp.json();
+  var studies = (data.studies || []).map(parseStudy);
+
+  return {
+    list: studies,
+    total: data.totalCount || studies.length,
+    nextToken: data.nextPageToken || null
+  };
+}
+
+// ── 解析單筆 ──
+function parseStudy(s) {
+  var p = s.protocolSection || {};
+  var id = p.identificationModule || {};
+  var status = p.statusModule || {};
+  var sponsor = p.sponsorCollaboratorsModule || {};
+  var design = p.designModule || {};
+  var desc = p.descriptionModule || {};
+  var cond = p.conditionsModule || {};
+  var arms = p.armsInterventionsModule || {};
+
+  return {
+    nctId: id.nctId || '',
+    title: id.briefTitle || '',
+    sponsor: (sponsor.leadSponsor || {}).name || '',
+    status: status.overallStatus || '',
+    phase: (design.phases || []).join(', ') || 'N/A',
+    startDate: (status.startDateStruct || {}).date || '',
+    completionDate: (status.primaryCompletionDateStruct || {}).date || '',
+    enrollment: (design.enrollmentInfo || {}).count || '',
+    conditions: (cond.conditions || []).slice(0,2).join(', '),
+    interventions: (arms.interventions || []).map(function(i){ return i.name; }).slice(0,2).join(', '),
+    summary: desc.briefSummary || '',
+    studyType: design.studyType || ''
+  };
+}
+
+// ── 渲染統計卡 ──
+function renderStats(studies) {
+  var total = totalCount;
+  var recruiting = studies.filter(function(s){ return s.status === 'RECRUITING'; }).length;
+  var completed = studies.filter(function(s){ return s.status === 'COMPLETED'; }).length;
+  var sponsors = new Set(studies.map(function(s){ return s.sponsor; }).filter(Boolean)).size;
+
+  animateNum('s-total', total);
+  animateNum('s-recruiting', recruiting);
+  animateNum('s-completed', completed);
+  animateNum('s-sponsors', sponsors);
+}
+
+function animateNum(id, target) {
+  var el = document.getElementById(id);
+  var start = 0;
+  var dur = 600;
+  var t0 = performance.now();
+  function step(t) {
+    var p = Math.min((t - t0) / dur, 1);
+    el.textContent = Math.round(p * target);
+    if (p < 1) requestAnimationFrame(step);
+    else el.textContent = target;
+  }
+  requestAnimationFrame(step);
+}
+
+// ── 渲染表格 ──
+function renderTable(studies, page) {
+  currentPage = page;
+  var start = (page - 1) * pageSize;
+  var end = start + pageSize;
+  var slice = studies.slice(start, end);
+
+  var totalPages = Math.ceil(studies.length / pageSize);
+
+  document.getElementById('table-count').textContent = studies.length + ' 筆（共約 ' + totalCount + '）';
+
+  if (slice.length === 0) {
+    document.getElementById('table-body').innerHTML = '<div class="empty-state"><div class="empty-icon">📭</div><div class="empty-text">查無符合條件的試驗</div></div>';
+    document.getElementById('pagination').style.display = 'none';
+    return;
+  }
+
+  var rows = slice.map(function(s, i) {
+    var delay = i * 40;
+    return '<tr style="animation-delay:' + delay + 'ms">' +
+      '<td class="td-nct"><a href="https://clinicaltrials.gov/study/' + s.nctId + '" target="_blank">' + s.nctId + '</a></td>' +
+      '<td class="td-title">' + esc(s.title) + '</td>' +
+      '<td class="td-sponsor">' + esc(s.sponsor) + '</td>' +
+      '<td>' + statusBadge(s.status) + '</td>' +
+      '<td class="td-phase">' + esc(s.phase) + '</td>' +
+      '<td style="font-size:11px;color:var(--faint);white-space:nowrap">' + (s.startDate || '—') + '</td>' +
+      '<td style="font-size:11px;color:var(--muted)">' + (s.enrollment ? s.enrollment.toLocaleString() : '—') + '</td>' +
+    '</tr>';
+  }).join('');
+
+  document.getElementById('table-body').innerHTML =
+    '<div class="table-wrap"><table>' +
+    '<thead><tr>' +
+      '<th>NCT ID</th>' +
+      '<th>試驗標題</th>' +
+      '<th>申請單位</th>' +
+      '<th>狀態</th>' +
+      '<th>期別</th>' +
+      '<th>開始日期</th>' +
+      '<th>收案人數</th>' +
+    '</tr></thead>' +
+    '<tbody>' + rows + '</tbody>' +
+    '</table></div>';
+
+  // 分頁
+  if (totalPages > 1) {
+    document.getElementById('pagination').style.display = '';
+    document.getElementById('page-info').textContent = '第 ' + page + ' / ' + totalPages + ' 頁';
+    document.getElementById('btn-prev').disabled = page <= 1;
+    document.getElementById('btn-next').disabled = page >= totalPages;
+  } else {
+    document.getElementById('pagination').style.display = 'none';
+  }
+}
+
+function changePage(dir) {
+  renderTable(allStudies, currentPage + dir);
+  document.querySelector('.table-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function statusBadge(status) {
+  var map = {
+    'RECRUITING': ['badge-recruiting', '招募中'],
+    'COMPLETED': ['badge-completed', '已完成'],
+    'ACTIVE_NOT_RECRUITING': ['badge-active', '執行中'],
+    'NOT_YET_RECRUITING': ['badge-other', '待開始'],
+    'TERMINATED': ['badge-other', '已終止'],
+    'WITHDRAWN': ['badge-other', '已撤回'],
+    'SUSPENDED': ['badge-other', '暫停'],
+  };
+  var r = map[status] || ['badge-other', status || '未知'];
+  return '<span class="badge ' + r[0] + '">' + r[1] + '</span>';
+}
+
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── 渲染圖表 ──
+function renderCharts(studies) {
+  renderStatusChart(studies);
+  renderSponsorChart(studies);
+  renderTrendChart(studies);
+}
+
+function destroyChart(id) {
+  if (charts[id]) { charts[id].destroy(); delete charts[id]; }
+}
+
+function renderStatusChart(studies) {
+  destroyChart('status');
+  var counts = {};
+  studies.forEach(function(s) {
+    var k = s.status || 'UNKNOWN';
+    counts[k] = (counts[k] || 0) + 1;
+  });
+  var labels = Object.keys(counts);
+  var values = labels.map(function(k){ return counts[k]; });
+  var colorMap = {
+    'RECRUITING': '#F5A623',
+    'COMPLETED': '#4CAF82',
+    'ACTIVE_NOT_RECRUITING': '#00C2A8',
+    'NOT_YET_RECRUITING': '#7A9CC4',
+    'TERMINATED': '#E05555',
+    'WITHDRAWN': '#5A5A8A',
+    'SUSPENDED': '#8A6A3A'
+  };
+  var colors = labels.map(function(k){ return colorMap[k] || '#3A5A80'; });
+  var ctx = document.getElementById('chart-status').getContext('2d');
+  charts['status'] = new Chart(ctx, {
+    type: 'doughnut',
+    data: { labels: labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 2, borderColor: '#0F2040' }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'right', labels: { color: '#7A9CC4', font: { size: 11 }, boxWidth: 12, padding: 8 } }
+      }
+    }
+  });
+}
+
+function renderSponsorChart(studies) {
+  destroyChart('sponsor');
+  var counts = {};
+  studies.forEach(function(s) {
+    if (s.sponsor) counts[s.sponsor] = (counts[s.sponsor] || 0) + 1;
+  });
+  var sorted = Object.entries(counts).sort(function(a,b){ return b[1]-a[1]; }).slice(0,10);
+  var labels = sorted.map(function(x){ return x[0].length > 22 ? x[0].slice(0,20)+'…' : x[0]; });
+  var values = sorted.map(function(x){ return x[1]; });
+  var ctx = document.getElementById('chart-sponsor').getContext('2d');
+  charts['sponsor'] = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: '試驗數',
+        data: values,
+        backgroundColor: 'rgba(30,111,217,.7)',
+        borderColor: '#2E82F0',
+        borderWidth: 1,
+        borderRadius: 4
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#7A9CC4', font: { size: 10 } }, grid: { color: 'rgba(30,58,95,.5)' } },
+        y: { ticks: { color: '#C8D8E8', font: { size: 10 } }, grid: { display: false } }
+      }
+    }
+  });
+}
+
+function renderTrendChart(studies) {
+  destroyChart('trend');
+  var yearCounts = {};
+  studies.forEach(function(s) {
+    var d = s.startDate || '';
+    var m = d.match(/^(\d{4})/);
+    if (m) {
+      var y = m[1];
+      yearCounts[y] = (yearCounts[y] || 0) + 1;
+    }
+  });
+  var years = Object.keys(yearCounts).sort();
+  var values = years.map(function(y){ return yearCounts[y]; });
+  var ctx = document.getElementById('chart-trend').getContext('2d');
+  charts['trend'] = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: years,
+      datasets: [{
+        label: '新登記試驗',
+        data: values,
+        borderColor: '#00C2A8',
+        backgroundColor: 'rgba(0,194,168,.12)',
+        tension: .4,
+        fill: true,
+        pointRadius: 3,
+        pointBackgroundColor: '#00C2A8'
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#7A9CC4', font: { size: 10 }, maxRotation: 45 }, grid: { color: 'rgba(30,58,95,.4)' } },
+        y: { ticks: { color: '#7A9CC4', font: { size: 10 } }, grid: { color: 'rgba(30,58,95,.4)' } }
+      }
+    }
+  });
+}
+
+// ── UI 狀態 ──
+function setLoading(on) {
+  var btn = document.getElementById('btn-search');
+  btn.disabled = on;
+  btn.textContent = on ? '查詢中…' : '🔍 查詢';
+  if (on) {
+    document.getElementById('table-body').innerHTML = '<div class="loading-state"><div class="spinner"></div><div style="color:var(--muted);font-size:13px">正在向 ClinicalTrials.gov 查詢…</div></div>';
+    document.getElementById('stat-row').style.display = 'none';
+    document.getElementById('charts-col').style.display = 'none';
+    document.getElementById('pagination').style.display = 'none';
+  }
+}
+
+function showError(msg) {
+  document.getElementById('table-body').innerHTML = '<div class="error-state">⚠️ ' + msg + '</div>';
+}
+
+// ── Enter 鍵觸發 ──
+document.addEventListener('DOMContentLoaded', function() {
+  ['q-intr','q-cond','q-sponsor'].forEach(function(id) {
+    document.getElementById(id).addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') doSearch();
+    });
+  });
+});
+</script>
+</body>
+</html>
