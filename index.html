@@ -745,7 +745,10 @@ function renderTable(studies, page) {
     var delay = i * 40;
     return '<tr style="animation-delay:' + delay + 'ms">' +
       '<td class="td-nct"><a href="https://clinicaltrials.gov/study/' + s.nctId + '" target="_blank">' + s.nctId + '</a></td>' +
-      '<td class="td-title">' + esc(s.title) + '</td>' +
+      '<td class="td-title">' +
+        '<div>' + esc(s.title) + '</div>' +
+        (s.titleZh ? '<div style="color:var(--teal);font-size:11px;margin-top:3px;line-height:1.45">' + esc(s.titleZh) + '</div>' : '<div style="color:var(--faint);font-size:10px;margin-top:2px">翻譯中…</div>') +
+      '</td>' +
       '<td class="td-sponsor">' + esc(s.sponsor) + '</td>' +
       '<td>' + statusBadge(s.status) + '</td>' +
       '<td class="td-phase">' + esc(s.phase) + '</td>' +
@@ -761,7 +764,7 @@ function renderTable(studies, page) {
     '<div class="table-wrap"><table>' +
     '<thead><tr>' +
       '<th>NCT ID</th>' +
-      '<th>試驗標題</th>' +
+      '<th>試驗標題 / 中文</th>' +
       '<th>申請單位</th>' +
       '<th>狀態</th>' +
       '<th>期別</th>' +
@@ -822,7 +825,12 @@ async function translateAllStudies(studies) {
   for (var i = 0; i < studies.length; i += batchSize) {
     var batch = studies.slice(i, i + batchSize);
     await Promise.all(batch.map(async function(s) {
-      s.conditionsZh = await gtTranslate(s.conditions);
+      var results = await Promise.all([
+        gtTranslate(s.title),
+        gtTranslate(s.conditions)
+      ]);
+      s.titleZh = results[0] || '';
+      s.conditionsZh = results[1] || '';
     }));
     showTranslateStatus('翻譯中… ' + Math.min(i + batchSize, studies.length) + ' / ' + studies.length);
     updateTranslatedRows(studies, i, i + batchSize);
@@ -845,6 +853,11 @@ function updateTranslatedRows(studies, from, to) {
     var rows = tbody.querySelectorAll('tr');
     if (!rows[rowIdx]) continue;
     var tds = rows[rowIdx].querySelectorAll('td');
+    if (tds[1] && s.titleZh) {
+      tds[1].innerHTML =
+        '<div>' + esc(s.title) + '</div>' +
+        '<div style="color:var(--teal);font-size:11px;margin-top:3px;line-height:1.45">' + esc(s.titleZh) + '</div>';
+    }
     if (tds[6] && s.conditionsZh) {
       tds[6].innerHTML =
         (s.conditions ? '<div style="font-size:11px;color:var(--muted)">' + esc(s.conditions) + '</div>' : '') +
