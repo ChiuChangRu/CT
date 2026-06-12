@@ -430,7 +430,28 @@ td.td-phase {
   <!-- 搜尋面板 -->
   <div class="search-panel">
     <div class="search-panel-title">查詢條件</div>
+    <datalist id="sponsor-list">
+      <option value="Medtronic">Medtronic</option>
+      <option value="Johnson &amp; Johnson">Johnson &amp; Johnson</option>
+      <option value="Abbott">Abbott</option>
+      <option value="Siemens Healthineers">Siemens Healthineers</option>
+      <option value="Philips">Philips</option>
+      <option value="Boston Scientific">Boston Scientific</option>
+      <option value="Becton Dickinson">Becton Dickinson</option>
+      <option value="Stryker">Stryker</option>
+      <option value="Zimmer Biomet">Zimmer Biomet</option>
+      <option value="Edwards Lifesciences">Edwards Lifesciences</option>
+      <option value="Baxter">Baxter</option>
+      <option value="Danaher">Danaher</option>
+      <option value="Cook Medical">Cook Medical</option>
+      <option value="Teleflex">Teleflex</option>
+      <option value="Argon Medical">Argon Medical</option>
+    </datalist>
     <div class="search-grid">
+      <div class="field">
+        <label>申請公司</label>
+        <input type="text" id="q-sponsor" list="sponsor-list" placeholder="選擇或輸入公司名稱" autocomplete="off" />
+      </div>
       <div class="field">
         <label>器材名稱 / 關鍵字</label>
         <input type="text" id="q-intr" placeholder="如：biopsy needle, catheter, stent" />
@@ -460,10 +481,6 @@ td.td-phase {
           <option value="PHASE4">Phase 4</option>
           <option value="NA">N/A</option>
         </select>
-      </div>
-      <div class="field">
-        <label>申請公司</label>
-        <input type="text" id="q-sponsor" placeholder="公司名稱" />
       </div>
       <div>
         <button class="btn-search" id="btn-search" onclick="doSearch()">🔍 查詢</button>
@@ -728,18 +745,14 @@ function renderTable(studies, page) {
     var delay = i * 40;
     return '<tr style="animation-delay:' + delay + 'ms">' +
       '<td class="td-nct"><a href="https://clinicaltrials.gov/study/' + s.nctId + '" target="_blank">' + s.nctId + '</a></td>' +
-      '<td class="td-title">' +
-        '<div>' + esc(s.title) + '</div>' +
-        (s.titleZh ? '<div style="color:var(--teal);font-size:11px;margin-top:3px;line-height:1.45">' + esc(s.titleZh) + '</div>' : '<div style="color:var(--faint);font-size:10px;margin-top:2px">翻譯中…</div>') +
-      '</td>' +
+      '<td class="td-title">' + esc(s.title) + '</td>' +
       '<td class="td-sponsor">' + esc(s.sponsor) + '</td>' +
       '<td>' + statusBadge(s.status) + '</td>' +
       '<td class="td-phase">' + esc(s.phase) + '</td>' +
       '<td style="font-size:11px;color:var(--faint);white-space:nowrap">' + (s.startDate || '—') + '</td>' +
       '<td style="min-width:140px;max-width:180px">' +
         (s.conditions ? '<div style="font-size:11px;color:var(--muted)">' + esc(s.conditions) + '</div>' : '') +
-        (s.conditionsZh ? '<div style="font-size:11px;color:var(--teal);margin-top:2px">' + esc(s.conditionsZh) + '</div>' : '') +
-        (s.summaryZh ? '<div style="font-size:10px;color:var(--faint);margin-top:4px;line-height:1.5;border-top:1px solid var(--border);padding-top:4px">' + esc(s.summaryZh.slice(0,150)) + (s.summaryZh.length>150?'…':'') + '</div>' : '') +
+        (s.conditionsZh ? '<div style="font-size:11px;color:var(--teal);margin-top:3px">' + esc(s.conditionsZh) + '</div>' : '<div style="font-size:10px;color:var(--faint);margin-top:2px">翻譯中…</div>') +
       '</td>' +
     '</tr>';
   }).join('');
@@ -748,7 +761,7 @@ function renderTable(studies, page) {
     '<div class="table-wrap"><table>' +
     '<thead><tr>' +
       '<th>NCT ID</th>' +
-      '<th>試驗標題 / 中文</th>' +
+      '<th>試驗標題</th>' +
       '<th>申請單位</th>' +
       '<th>狀態</th>' +
       '<th>期別</th>' +
@@ -809,14 +822,7 @@ async function translateAllStudies(studies) {
   for (var i = 0; i < studies.length; i += batchSize) {
     var batch = studies.slice(i, i + batchSize);
     await Promise.all(batch.map(async function(s) {
-      var results = await Promise.all([
-        gtTranslate(s.title),
-        gtTranslate(s.conditions),
-        gtTranslate(s.summary ? s.summary.slice(0, 300) : '')
-      ]);
-      s.titleZh = results[0] || '';
-      s.conditionsZh = results[1] || '';
-      s.summaryZh = results[2] || '';
+      s.conditionsZh = await gtTranslate(s.conditions);
     }));
     showTranslateStatus('翻譯中… ' + Math.min(i + batchSize, studies.length) + ' / ' + studies.length);
     updateTranslatedRows(studies, i, i + batchSize);
@@ -839,16 +845,10 @@ function updateTranslatedRows(studies, from, to) {
     var rows = tbody.querySelectorAll('tr');
     if (!rows[rowIdx]) continue;
     var tds = rows[rowIdx].querySelectorAll('td');
-    if (tds[1] && s.titleZh) {
-      tds[1].innerHTML =
-        '<div>' + esc(s.title) + '</div>' +
-        '<div style="color:var(--teal);font-size:11px;margin-top:3px;line-height:1.45">' + esc(s.titleZh) + '</div>';
-    }
-    if (tds[6] && (s.conditionsZh || s.summaryZh)) {
+    if (tds[6] && s.conditionsZh) {
       tds[6].innerHTML =
         (s.conditions ? '<div style="font-size:11px;color:var(--muted)">' + esc(s.conditions) + '</div>' : '') +
-        (s.conditionsZh ? '<div style="font-size:11px;color:var(--teal);margin-top:2px">' + esc(s.conditionsZh) + '</div>' : '') +
-        (s.summaryZh ? '<div style="font-size:10px;color:var(--faint);margin-top:4px;line-height:1.5;border-top:1px solid var(--border);padding-top:4px">' + esc(s.summaryZh.slice(0,150)) + (s.summaryZh.length>150?'…':'') + '</div>' : '');
+        '<div style="font-size:11px;color:var(--teal);margin-top:3px">' + esc(s.conditionsZh) + '</div>';
     }
   }
 }
