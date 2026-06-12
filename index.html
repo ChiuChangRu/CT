@@ -24,6 +24,34 @@
   --faint: #3A5A80;
 }
 
+/* ── 自製下拉選單 ── */
+.custom-select-wrap { position: relative; }
+.custom-select-wrap input { cursor: pointer; }
+.custom-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0; right: 0;
+  background: #1E2A3A;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  z-index: 200;
+  box-shadow: 0 8px 24px rgba(0,0,0,.4);
+  overflow: hidden;
+  display: none;
+}
+.custom-dropdown.open { display: block; }
+.custom-dropdown-item {
+  padding: 8px 13px;
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+  transition: background .12s;
+  border-bottom: 1px solid rgba(30,58,95,.4);
+}
+.custom-dropdown-item:last-child { border-bottom: none; }
+.custom-dropdown-item:hover { background: rgba(30,111,217,.18); color: #fff; }
+.custom-dropdown-item.active { background: rgba(30,111,217,.25); color: var(--blue2); font-weight:600; }
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
@@ -430,27 +458,37 @@ td.td-phase {
   <!-- 搜尋面板 -->
   <div class="search-panel">
     <div class="search-panel-title">查詢條件</div>
-    <datalist id="sponsor-list">
-      <option value="Medtronic">Medtronic</option>
-      <option value="Johnson &amp; Johnson">Johnson &amp; Johnson</option>
-      <option value="Abbott">Abbott</option>
-      <option value="Siemens Healthineers">Siemens Healthineers</option>
-      <option value="Philips">Philips</option>
-      <option value="Boston Scientific">Boston Scientific</option>
-      <option value="Becton Dickinson">Becton Dickinson</option>
-      <option value="Stryker">Stryker</option>
-      <option value="Zimmer Biomet">Zimmer Biomet</option>
-      <option value="Edwards Lifesciences">Edwards Lifesciences</option>
-      <option value="Baxter">Baxter</option>
-      <option value="Danaher">Danaher</option>
-      <option value="Cook Medical">Cook Medical</option>
-      <option value="Teleflex">Teleflex</option>
-      <option value="Argon Medical">Argon Medical</option>
-    </datalist>
+
     <div class="search-grid">
       <div class="field">
+        <label>試驗類型</label>
+        <select id="q-devtype">
+          <option value="DEVICE">醫療器材（Device）</option>
+          <option value="DRUG">藥品（Drug）</option>
+          <option value="">全部類型</option>
+        </select>
+      </div>
+      <div class="field custom-select-wrap">
         <label>申請公司</label>
-        <input type="text" id="q-sponsor" list="sponsor-list" placeholder="選擇或輸入公司名稱" autocomplete="off" />
+        <input type="text" id="q-sponsor" placeholder="選擇或輸入公司名稱" autocomplete="off" readonly />
+        <div class="custom-dropdown" id="sponsor-dropdown">
+          <div class="custom-dropdown-item" data-val="">— 全部公司 —</div>
+          <div class="custom-dropdown-item" data-val="Boston Scientific">Boston Scientific</div>
+          <div class="custom-dropdown-item" data-val="Medtronic">Medtronic</div>
+          <div class="custom-dropdown-item" data-val="Johnson &amp; Johnson">Johnson &amp; Johnson</div>
+          <div class="custom-dropdown-item" data-val="Abbott">Abbott</div>
+          <div class="custom-dropdown-item" data-val="Siemens Healthineers">Siemens Healthineers</div>
+          <div class="custom-dropdown-item" data-val="Philips">Philips</div>
+          <div class="custom-dropdown-item" data-val="Becton Dickinson">Becton Dickinson</div>
+          <div class="custom-dropdown-item" data-val="Stryker">Stryker</div>
+          <div class="custom-dropdown-item" data-val="Zimmer Biomet">Zimmer Biomet</div>
+          <div class="custom-dropdown-item" data-val="Edwards Lifesciences">Edwards Lifesciences</div>
+          <div class="custom-dropdown-item" data-val="Baxter">Baxter</div>
+          <div class="custom-dropdown-item" data-val="Cook Medical">Cook Medical</div>
+          <div class="custom-dropdown-item" data-val="Teleflex">Teleflex</div>
+          <div class="custom-dropdown-item" data-val="Argon Medical">Argon Medical</div>
+          <div class="custom-dropdown-item" data-val="__custom__" style="color:var(--teal);font-style:italic">✏️ 手動輸入…</div>
+        </div>
       </div>
       <div class="field">
         <label>器材名稱 / 關鍵字</label>
@@ -633,7 +671,7 @@ async function fetchStudies(intr, cond, status, phase, sponsor, limit, pageToken
   // 查詢條件
   if (intr) params.set('query.intr', intr);
   if (cond) params.set('query.cond', cond);
-  if (sponsor) params.set('query.term', sponsor);
+  if (sponsor) params.set('query.spons', sponsor);
 
   // 篩選
   var statusFilter = [];
@@ -644,6 +682,9 @@ async function fetchStudies(intr, cond, status, phase, sponsor, limit, pageToken
   }
   params.set('filter.overallStatus', statusFilter.join(','));
   if (phase) params.set('filter.phase', phase);
+  var devtype = document.getElementById('q-devtype') ? document.getElementById('q-devtype').value : 'DEVICE';
+  if (devtype === 'DEVICE') params.set('filter.advanced', 'AREA[InterventionType]DEVICE');
+  else if (devtype === 'DRUG') params.set('filter.advanced', 'AREA[InterventionType]DRUG');
 
   // 欄位
   params.set('fields', [
@@ -1011,10 +1052,60 @@ function showError(msg) {
 
 // ── Enter 鍵觸發 ──
 document.addEventListener('DOMContentLoaded', function() {
-  // 預設公司
+  // 預設公司 Boston Scientific
   var sponsorEl = document.getElementById('q-sponsor');
-  if (sponsorEl && !sponsorEl.value) sponsorEl.value = 'Boston Scientific';
+  if (sponsorEl && !sponsorEl.value) {
+    sponsorEl.value = 'Boston Scientific';
+    var dd = document.getElementById('sponsor-dropdown');
+    if (dd) {
+      dd.querySelectorAll('.custom-dropdown-item').forEach(function(item) {
+        if (item.dataset.val === 'Boston Scientific') item.classList.add('active');
+      });
+    }
+  }
   doSearch();
+
+  // 自製下拉邏輯
+  var sponsorInput = document.getElementById('q-sponsor');
+  var dropdown = document.getElementById('sponsor-dropdown');
+  var isCustom = false;
+
+  sponsorInput.addEventListener('click', function() {
+    if (isCustom) return;
+    dropdown.classList.toggle('open');
+  });
+
+  sponsorInput.addEventListener('input', function() {
+    // 手動輸入模式不攔截
+  });
+
+  dropdown.querySelectorAll('.custom-dropdown-item').forEach(function(item) {
+    item.addEventListener('click', function() {
+      var val = this.dataset.val;
+      if (val === '__custom__') {
+        isCustom = true;
+        sponsorInput.readOnly = false;
+        sponsorInput.value = '';
+        sponsorInput.placeholder = '輸入公司名稱後按 Enter';
+        sponsorInput.focus();
+        dropdown.classList.remove('open');
+        return;
+      }
+      sponsorInput.value = val;
+      dropdown.classList.remove('open');
+      // 更新 active 樣式
+      dropdown.querySelectorAll('.custom-dropdown-item').forEach(function(i){ i.classList.remove('active'); });
+      this.classList.add('active');
+      doSearch();
+    });
+  });
+
+  // 點外面關閉
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.custom-select-wrap')) {
+      dropdown.classList.remove('open');
+    }
+  });
 
   ['q-intr','q-cond','q-sponsor'].forEach(function(id) {
     document.getElementById(id).addEventListener('keydown', function(e) {
