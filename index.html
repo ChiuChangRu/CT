@@ -450,7 +450,7 @@ td.td-phase {
     <div class="search-grid">
       <div class="field">
         <label>申請公司</label>
-        <input type="text" id="q-sponsor" list="sponsor-list" placeholder="選擇或輸入公司名稱" autocomplete="off" value="Boston Scientific" />
+        <input type="text" id="q-sponsor" list="sponsor-list" placeholder="選擇或輸入公司名稱" autocomplete="off" />
       </div>
       <div class="field">
         <label>器材名稱 / 關鍵字</label>
@@ -1011,6 +1011,9 @@ function showError(msg) {
 
 // ── Enter 鍵觸發 ──
 document.addEventListener('DOMContentLoaded', function() {
+  // 預設公司
+  var sponsorEl = document.getElementById('q-sponsor');
+  if (sponsorEl && !sponsorEl.value) sponsorEl.value = 'Boston Scientific';
   doSearch();
 
   ['q-intr','q-cond','q-sponsor'].forEach(function(id) {
