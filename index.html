@@ -450,7 +450,7 @@ td.td-phase {
     <div class="search-grid">
       <div class="field">
         <label>申請公司</label>
-        <input type="text" id="q-sponsor" list="sponsor-list" placeholder="選擇或輸入公司名稱" autocomplete="off" />
+        <input type="text" id="q-sponsor" list="sponsor-list" placeholder="選擇或輸入公司名稱" autocomplete="off" value="Boston Scientific" />
       </div>
       <div class="field">
         <label>器材名稱 / 關鍵字</label>
@@ -998,6 +998,8 @@ function showError(msg) {
 
 // ── Enter 鍵觸發 ──
 document.addEventListener('DOMContentLoaded', function() {
+  doSearch();
+
   ['q-intr','q-cond','q-sponsor'].forEach(function(id) {
     document.getElementById(id).addEventListener('keydown', function(e) {
       if (e.key === 'Enter') doSearch();
