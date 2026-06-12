@@ -129,7 +129,7 @@ body {
 }
 .search-grid {
   display: grid;
-  grid-template-columns: 2fr 1.5fr 1fr 1fr 1fr auto;
+  grid-template-columns: 1fr 1.5fr 1.2fr 1fr 1fr 1fr auto;
   gap: 10px;
   align-items: end;
 }
@@ -520,6 +520,19 @@ td.td-phase {
           <option value="NA">N/A</option>
         </select>
       </div>
+      <div class="field">
+        <label>科別</label>
+        <select id="q-specialty">
+          <option value="">全部科別</option>
+          <option value="cardiovascular heart">心臟血管</option>
+          <option value="oncology cancer tumor">腫瘤／癌症</option>
+          <option value="urology kidney bladder">泌尿科</option>
+          <option value="neurology brain stroke">神經科</option>
+          <option value="orthopedic bone joint spine">骨科</option>
+          <option value="gastroenterology digestive colon">消化科</option>
+          <option value="pulmonology lung respiratory">呼吸科</option>
+        </select>
+      </div>
       <div>
         <button class="btn-search" id="btn-search" onclick="doSearch()">🔍 查詢</button>
       </div>
@@ -683,6 +696,12 @@ async function fetchStudies(intr, cond, status, phase, sponsor, limit, pageToken
   params.set('filter.overallStatus', statusFilter.join(','));
   if (phase) params.set('filter.phase', phase);
   var devtype = document.getElementById('q-devtype') ? document.getElementById('q-devtype').value : 'DEVICE';
+  // 科別：補進 cond 查詢
+  var specialty = document.getElementById('q-specialty') ? document.getElementById('q-specialty').value : '';
+  if (specialty) {
+    var condVal = params.get('query.cond') || '';
+    params.set('query.cond', condVal ? condVal + ' ' + specialty.split(' ')[0] : specialty.split(' ')[0]);
+  }
   if (devtype === 'DEVICE') params.set('filter.advanced', 'AREA[InterventionType]DEVICE');
   else if (devtype === 'DRUG') params.set('filter.advanced', 'AREA[InterventionType]DRUG');
 
