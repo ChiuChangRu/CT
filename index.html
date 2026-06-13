@@ -592,7 +592,7 @@ td.td-phase {
     <div class="charts-col" id="charts-col" style="display:none">
 
       <div class="chart-card">
-        <div class="chart-label">試驗狀態分布</div>
+        <div class="chart-label">科別分布</div>
         <div class="chart-wrap" style="height:160px">
           <canvas id="chart-status"></canvas>
         </div>
@@ -606,7 +606,7 @@ td.td-phase {
       </div>
 
       <div class="chart-card">
-        <div class="chart-label">試驗登記年份趨勢</div>
+        <div class="chart-label">臨床試驗投資歷史</div>
         <div class="chart-wrap" style="height:160px">
           <canvas id="chart-trend"></canvas>
         </div>
@@ -945,25 +945,40 @@ function destroyChart(id) {
   if (charts[id]) { charts[id].destroy(); delete charts[id]; }
 }
 
+// ── 科別分類關鍵字對照 ──
+var SPECIALTY_MAP = [
+  { label: '心臟血管', keys: ['cardiovascular','cardiac','heart','coronary','vascular','aorta','artery'] },
+  { label: '腫瘤／癌症', keys: ['cancer','oncology','tumor','tumour','malignant','carcinoma','lymphoma','leukemia'] },
+  { label: '泌尿科', keys: ['urology','urolog','kidney','bladder','renal','ureter','ureteral','prostate','nephro'] },
+  { label: '神經科', keys: ['neurology','neurolog','brain','stroke','cerebral','spine','spinal','neural'] },
+  { label: '骨科', keys: ['orthopedic','orthopaedic','bone','joint','fracture','spine','spinal','hip','knee'] },
+  { label: '消化科', keys: ['gastro','digestive','colon','colorectal','intestin','bowel','esophag','hepat','liver'] },
+  { label: '呼吸科', keys: ['pulmonary','pulmonolog','lung','respiratory','bronch','airway','trachea','copd'] },
+];
+
+function classifySpecialty(study) {
+  var text = ((study.conditions || '') + ' ' + (study.title || '') + ' ' + (study.interventions || '')).toLowerCase();
+  for (var i = 0; i < SPECIALTY_MAP.length; i++) {
+    var sp = SPECIALTY_MAP[i];
+    for (var j = 0; j < sp.keys.length; j++) {
+      if (text.indexOf(sp.keys[j]) >= 0) return sp.label;
+    }
+  }
+  return '其他';
+}
+
 function renderStatusChart(studies) {
   destroyChart('status');
+  // 科別分布
   var counts = {};
   studies.forEach(function(s) {
-    var k = s.status || 'UNKNOWN';
-    counts[k] = (counts[k] || 0) + 1;
+    var sp = classifySpecialty(s);
+    counts[sp] = (counts[sp] || 0) + 1;
   });
-  var labels = Object.keys(counts);
+  var palette = ['#1E6FD9','#00C2A8','#F5A623','#4CAF82','#9B59B6','#E05555','#3498DB','#E67E22','#2ECC71'];
+  var labels = Object.keys(counts).sort(function(a,b){ return counts[b]-counts[a]; });
   var values = labels.map(function(k){ return counts[k]; });
-  var colorMap = {
-    'RECRUITING': '#F5A623',
-    'COMPLETED': '#4CAF82',
-    'ACTIVE_NOT_RECRUITING': '#00C2A8',
-    'NOT_YET_RECRUITING': '#7A9CC4',
-    'TERMINATED': '#E05555',
-    'WITHDRAWN': '#5A5A8A',
-    'SUSPENDED': '#8A6A3A'
-  };
-  var colors = labels.map(function(k){ return colorMap[k] || '#3A5A80'; });
+  var colors = labels.map(function(_,i){ return palette[i % palette.length]; });
   var ctx = document.getElementById('chart-status').getContext('2d');
   charts['status'] = new Chart(ctx, {
     type: 'doughnut',
@@ -971,7 +986,16 @@ function renderStatusChart(studies) {
     options: {
       responsive: true, maintainAspectRatio: false,
       plugins: {
-        legend: { position: 'right', labels: { color: '#7A9CC4', font: { size: 11 }, boxWidth: 12, padding: 8 } }
+        legend: { position: 'right', labels: { color: '#7A9CC4', font: { size: 11 }, boxWidth: 12, padding: 8 } },
+        tooltip: {
+          callbacks: {
+            label: function(ctx) {
+              var total = ctx.dataset.data.reduce(function(a,b){ return a+b; }, 0);
+              var pct = Math.round(ctx.parsed / total * 100);
+              return ' ' + ctx.label + ': ' + ctx.parsed + ' 筆 (' + pct + '%)';
+            }
+          }
+        }
       }
     }
   });
@@ -1014,39 +1038,61 @@ function renderSponsorChart(studies) {
 
 function renderTrendChart(studies) {
   destroyChart('trend');
+  // 依登記年份統計試驗數量（反映投資規模歷史）
   var yearCounts = {};
   studies.forEach(function(s) {
     var d = s.startDate || '';
     var m = d.match(/^(\d{4})/);
     if (m) {
-      var y = m[1];
-      yearCounts[y] = (yearCounts[y] || 0) + 1;
+      var y = parseInt(m[1]);
+      if (y >= 2000 && y <= 2026) yearCounts[y] = (yearCounts[y] || 0) + 1;
     }
   });
+  // 填補空白年份
+  if (Object.keys(yearCounts).length > 0) {
+    var minY = Math.min.apply(null, Object.keys(yearCounts).map(Number));
+    var maxY = Math.max.apply(null, Object.keys(yearCounts).map(Number));
+    for (var y = minY; y <= maxY; y++) {
+      if (!yearCounts[y]) yearCounts[y] = 0;
+    }
+  }
   var years = Object.keys(yearCounts).sort();
   var values = years.map(function(y){ return yearCounts[y]; });
+  // 取查詢主體名稱（公司或關鍵字）
+  var sponsorName = (document.getElementById('q-sponsor') || {}).value || '查詢結果';
   var ctx = document.getElementById('chart-trend').getContext('2d');
   charts['trend'] = new Chart(ctx, {
-    type: 'line',
+    type: 'bar',
     data: {
       labels: years,
       datasets: [{
-        label: '新登記試驗',
+        label: sponsorName + ' 登記試驗數',
         data: values,
-        borderColor: '#00C2A8',
-        backgroundColor: 'rgba(0,194,168,.12)',
-        tension: .4,
-        fill: true,
-        pointRadius: 3,
-        pointBackgroundColor: '#00C2A8'
+        backgroundColor: function(ctx) {
+          var val = ctx.raw || 0;
+          var max = Math.max.apply(null, values) || 1;
+          var alpha = 0.3 + (val / max) * 0.6;
+          return 'rgba(30,111,217,' + alpha + ')';
+        },
+        borderColor: '#2E82F0',
+        borderWidth: 1,
+        borderRadius: 3,
       }]
     },
     options: {
       responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            title: function(ctx) { return ctx[0].label + ' 年'; },
+            label: function(ctx) { return ' 登記試驗：' + ctx.raw + ' 筆'; }
+          }
+        }
+      },
       scales: {
-        x: { ticks: { color: '#7A9CC4', font: { size: 10 }, maxRotation: 45 }, grid: { color: 'rgba(30,58,95,.4)' } },
-        y: { ticks: { color: '#7A9CC4', font: { size: 10 } }, grid: { color: 'rgba(30,58,95,.4)' } }
+        x: { ticks: { color: '#7A9CC4', font: { size: 9 }, maxRotation: 45 }, grid: { color: 'rgba(30,58,95,.3)' } },
+        y: { ticks: { color: '#7A9CC4', font: { size: 10 } }, grid: { color: 'rgba(30,58,95,.3)' }, beginAtZero: true }
       }
     }
   });
